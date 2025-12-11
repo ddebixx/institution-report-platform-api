@@ -42,11 +42,12 @@ export class ReportsService {
       const year = now.getFullYear();
       const month = String(now.getMonth() + 1).padStart(2, "0");
       const day = String(now.getDate()).padStart(2, "0");
+      const dateFolder = `${year}-${month}-${day}`;
       
       const institutionPrefix = dto.institutionId || dto.numerRspo;
       const folderPath = institutionPrefix
-        ? `${institutionPrefix}/${year}/${month}/${day}`
-        : `unassigned/${year}/${month}/${day}`;
+        ? `${institutionPrefix}/${dateFolder}`
+        : `unassigned/${dateFolder}`;
       
       const storagePath = `${folderPath}/${uniqueId}${extension}`;
 
@@ -89,7 +90,7 @@ export class ReportsService {
         institution_id: institutionId,
         report_reason: dto.reportReason,
       })
-      .select()
+      .select("id")
       .single();
 
     if (insertError) {
@@ -99,6 +100,12 @@ export class ReportsService {
 
       throw new UnprocessableEntityException(
         `Could not save report: ${insertError.message}`
+      );
+    }
+
+    if (!report?.id) {
+      throw new InternalServerErrorException(
+        "Report was created but no ID was returned"
       );
     }
 

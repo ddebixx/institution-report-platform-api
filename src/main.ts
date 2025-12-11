@@ -10,6 +10,13 @@ async function bootstrap(): Promise<void> {
     bufferLogs: true,
   });
 
+  app.enableCors({
+    origin: true,
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  });
+
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,

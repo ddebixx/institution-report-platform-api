@@ -1,6 +1,8 @@
 import {
   Body,
   Controller,
+  HttpCode,
+  HttpStatus,
   Post,
   UploadedFile,
   UseInterceptors,
@@ -86,6 +88,7 @@ export class ReportsController {
     status: 422,
     description: "Validation failed or PDF upload failed.",
   })
+  @HttpCode(HttpStatus.CREATED)
   async createReport(
     @Body() dto: CreateReportDto,
     @UploadedFile() pdf: Express.Multer.File | undefined
