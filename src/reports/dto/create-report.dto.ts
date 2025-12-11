@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
+import { Transform } from "class-transformer";
 import {
   IsEmail,
   IsNotEmpty,
@@ -40,15 +41,30 @@ export class CreateReportDto {
   reportDescription?: string;
 
   @ApiPropertyOptional({
-    description: "Additional structured metadata for the report.",
-    example: {
-      category: "safety",
-      attachments: ["photo1.png"],
-    },
-    type: Object,
+    description:
+      "Additional structured metadata for the report. Must be a valid JSON string when sent via multipart/form-data.",
+    example: '{"category":"safety","severity":"high"}',
+    type: String,
   })
   @IsOptional()
-  @IsObject()
+  @Transform(({ value }) => {
+    if (value === undefined || value === null || value === "") {
+      return undefined;
+    }
+    if (typeof value === "string" && value.trim().startsWith("{")) {
+      try {
+        return JSON.parse(value);
+      } catch {
+        
+        return value;
+      }
+    }
+    
+    return value;
+  })
+  @IsObject({
+    message: "reportContent must be a valid JSON object or JSON string",
+  })
   reportContent?: Record<string, unknown>;
 
   @ApiPropertyOptional({

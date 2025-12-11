@@ -8,17 +8,17 @@ export class SupabaseService {
 
   constructor(private readonly config: ConfigService) {
     const supabaseUrl = this.config.get<string>("SUPABASE_URL");
-    const supabaseServiceRoleKey = this.config.get<string>(
-      "SUPABASE_SERVICE_ROLE_KEY"
+    const supabaseSecretRoleKey = this.config.get<string>(
+      "SUPABASE_SECRET_ROLE_KEY"
     );
 
-    if (!supabaseUrl || !supabaseServiceRoleKey) {
+    if (!supabaseUrl || !supabaseSecretRoleKey) {
       throw new InternalServerErrorException(
-        "Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY environment variables."
+        "Missing SUPABASE_URL or SUPABASE_SECRET_ROLE_KEY environment variables."
       );
     }
 
-    this.client = createClient(supabaseUrl, supabaseServiceRoleKey);
+    this.client = createClient(supabaseUrl, supabaseSecretRoleKey);
   }
 
   getClient(): SupabaseClient {

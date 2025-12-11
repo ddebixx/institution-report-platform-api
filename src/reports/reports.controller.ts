@@ -3,18 +3,13 @@ import {
   Controller,
   Post,
   UploadedFile,
-  UseGuards,
   UseInterceptors,
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
-import { CurrentUser } from "../auth/current-user.decorator";
-import { SupabaseAuthGuard } from "../auth/supabase-auth.guard";
-import { AuthUser } from "@supabase/supabase-js";
 import { CreateReportDto } from "./dto/create-report.dto";
 import { CreateReportResponseDto } from "./dto/create-report-response.dto";
 import { ReportsService } from "./reports.service";
 import {
-  ApiBearerAuth,
   ApiBody,
   ApiConsumes,
   ApiOperation,
@@ -23,13 +18,11 @@ import {
 } from "@nestjs/swagger";
 
 @ApiTags("Reports")
-@ApiBearerAuth()
 @Controller("reports")
 export class ReportsController {
   constructor(private readonly reportsService: ReportsService) {}
 
   @Post()
-  @UseGuards(SupabaseAuthGuard)
   @UseInterceptors(
     FileInterceptor("pdf", {
       fileFilter: (_req, file, cb) => {
@@ -44,7 +37,7 @@ export class ReportsController {
   @ApiOperation({
     summary: "Create a report",
     description:
-      "Uploads a PDF to Supabase Storage and stores the report metadata.",
+      "Uploads a PDF to Supabase Storage and stores the report metadata. No authentication required.",
   })
   @ApiBody({
     required: true,
@@ -68,8 +61,10 @@ export class ReportsController {
           example: "Reports of non-compliance with internal policy.",
         },
         reportContent: {
-          type: "object",
-          example: { category: "safety", attachments: ["photo1.png"] },
+          type: "string",
+          description:
+            "JSON string of additional structured metadata (e.g., '{\"category\":\"safety\",\"severity\":\"high\"}')",
+          example: '{"category":"safety","severity":"high"}',
         },
         institutionName: {
           type: "string",
@@ -88,19 +83,14 @@ export class ReportsController {
     type: CreateReportResponseDto,
   })
   @ApiResponse({
-    status: 401,
-    description: "Missing or invalid bearer token.",
-  })
-  @ApiResponse({
     status: 422,
     description: "Validation failed or PDF upload failed.",
   })
   async createReport(
     @Body() dto: CreateReportDto,
-    @UploadedFile() pdf: Express.Multer.File | undefined,
-    @CurrentUser() user: AuthUser
+    @UploadedFile() pdf: Express.Multer.File | undefined
   ): Promise<CreateReportResponseDto> {
-    return this.reportsService.create(dto, pdf, user);
+    return this.reportsService.create(dto, pdf);
   }
 }
 

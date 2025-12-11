@@ -14,7 +14,7 @@ Create a `.env` file:
 PORT=3000
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
-SUPABASE_JWT_SECRET=your-jwt-secret
+SUPABASE_SECRET_ROLE_KEY=your-jwt-secret
 SUPABASE_BUCKET=reports
 ```
 

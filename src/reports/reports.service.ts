@@ -19,7 +19,7 @@ export class ReportsService {
     private readonly supabase: SupabaseService,
     private readonly config: ConfigService
   ) {
-    this.bucket = this.config.get<string>("SUPABASE_BUCKET") ?? "reports";
+    this.bucket = this.config.get<string>("SUPABASE_BUCKET") ?? "report-files";
   }
 
   async create(
@@ -36,9 +36,19 @@ export class ReportsService {
 
     if (pdf) {
       const extension = extname(pdf.originalname || "report.pdf") || ".pdf";
-      const basePath =
-        dto.institutionId || dto.numerRspo || "unassigned-institution";
-      const storagePath = `${basePath}/${randomUUID()}${extension}`;
+      const uniqueId = randomUUID();
+      
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, "0");
+      const day = String(now.getDate()).padStart(2, "0");
+      
+      const institutionPrefix = dto.institutionId || dto.numerRspo;
+      const folderPath = institutionPrefix
+        ? `${institutionPrefix}/${year}/${month}/${day}`
+        : `unassigned/${year}/${month}/${day}`;
+      
+      const storagePath = `${folderPath}/${uniqueId}${extension}`;
 
       const { data, error } = await client.storage
         .from(this.bucket)
