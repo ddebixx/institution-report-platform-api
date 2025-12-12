@@ -12,6 +12,8 @@ import { SupabaseService } from "../supabase/supabase.service";
 import { CreateReportDto } from "./dto/create-report.dto";
 import { CreateReportResponseDto } from "./dto/create-report-response.dto";
 import { ReportResponseDto } from "./dto/report-response.dto";
+import { AssignReportResponseDto } from "./dto/assign-report-response.dto";
+import { NotFoundException, ConflictException } from "@nestjs/common";
 
 @Injectable()
 export class ReportsService {
@@ -40,18 +42,18 @@ export class ReportsService {
     if (pdf) {
       const extension = extname(pdf.originalname || "report.pdf") || ".pdf";
       const uniqueId = randomUUID();
-      
+
       const now = new Date();
       const year = now.getFullYear();
       const month = String(now.getMonth() + 1).padStart(2, "0");
       const day = String(now.getDate()).padStart(2, "0");
       const dateFolder = `${year}-${month}-${day}`;
-      
+
       const institutionPrefix = dto.institutionId || dto.numerRspo;
       const folderPath = institutionPrefix
         ? `${institutionPrefix}/${dateFolder}`
         : `unassigned/${dateFolder}`;
-      
+
       const storagePath = `${folderPath}/${uniqueId}${extension}`;
 
       const { data, error } = await client.storage
@@ -219,37 +221,102 @@ export class ReportsService {
     }
   }
 
+  private async getModeratorIdByUserId(
+    client: any,
+    userId: string
+  ): Promise<string | null> {
+    const { data: moderator, error } = await client
+      .from("moderators")
+      .select("id")
+      .eq("id", userId)
+      .single();
+
+    if (error && error.code !== "PGRST116") {
+      this.logger.error(
+        `Error fetching moderator: ${error.message}`,
+        error
+      );
+      return null;
+    }
+
+    return moderator?.id || null;
+  }
+
   async findAssignedByUserId(userId: string): Promise<ReportResponseDto[]> {
     try {
       const client = this.supabase.getClient();
 
-      const { data, error } = await client
-        .from("reports")
-        .select("*")
-        .order("created_at", { ascending: false });
+      const moderatorId = await this.getModeratorIdByUserId(client, userId);
+      if (!moderatorId) {
+        this.logger.log(`No moderator found for user ${userId}`);
+        return [];
+      }
 
-      if (error) {
+      const { data: assignments, error: assignmentError } = await client
+        .from("assigned_reports")
+        .select("report_id, assigned_at")
+        .eq("moderator_id", moderatorId);
+
+      if (assignmentError) {
         this.logger.error(
-          `Failed to fetch assigned reports: ${error.message}`,
-          error
+          `Failed to fetch assignments: ${assignmentError.message}`,
+          assignmentError
         );
         throw new InternalServerErrorException(
-          `Failed to fetch assigned reports: ${error.message}`
+          `Failed to fetch assignments: ${assignmentError.message}`
         );
       }
 
-      const reports = (data || [])
-        .map((row) => this.transformReport(row))
-        .filter(
-          (report) =>
-            report.assignedTo === userId &&
-            (report.status === "assigned" || report.status === "completed")
+      if (!assignments || assignments.length === 0) {
+        this.logger.log(`No assigned reports found for user ${userId}`);
+        return [];
+      }
+
+      const reportIds = assignments.map((a) => a.report_id);
+
+      const { data: reports, error: reportsError } = await client
+        .from("reports")
+        .select("*")
+        .in("id", reportIds)
+        .order("created_at", { ascending: false });
+
+      if (reportsError) {
+        this.logger.error(
+          `Failed to fetch reports: ${reportsError.message}`,
+          reportsError
         );
+        throw new InternalServerErrorException(
+          `Failed to fetch reports: ${reportsError.message}`
+        );
+      }
+
+      const assignmentMap = new Map(
+        assignments.map((a) => [a.report_id, a.assigned_at])
+      );
+
+      const transformedReports = (reports || []).map((row) => {
+        const report = this.transformReport(row);
+        const assignedAtFromTable = assignmentMap.get(row.id);
+        
+        if (assignedAtFromTable && !report.assignedAt) {
+          report.assignedAt = new Date(assignedAtFromTable).toISOString();
+        }
+
+        if (!report.assignedTo) {
+          report.assignedTo = userId;
+        }
+        return report;
+      });
+
+      const filteredReports = transformedReports.filter(
+        (report) =>
+          report.status === "assigned" || report.status === "completed"
+      );
 
       this.logger.log(
-        `Fetched ${reports.length} assigned reports for user ${userId}`
+        `Fetched ${filteredReports.length} assigned reports for user ${userId}`
       );
-      return reports;
+      return filteredReports;
     } catch (error) {
       this.logger.error(
         `Error in findAssignedByUserId: ${error instanceof Error ? error.message : "Unknown error"}`,
@@ -263,32 +330,77 @@ export class ReportsService {
     try {
       const client = this.supabase.getClient();
 
-      const { data, error } = await client
-        .from("reports")
-        .select("*")
-        .order("created_at", { ascending: false });
+      const moderatorId = await this.getModeratorIdByUserId(client, userId);
+      if (!moderatorId) {
+        this.logger.log(`No moderator found for user ${userId}`);
+        return [];
+      }
 
-      if (error) {
+      const { data: assignments, error: assignmentError } = await client
+        .from("assigned_reports")
+        .select("report_id, assigned_at")
+        .eq("moderator_id", moderatorId);
+
+      if (assignmentError) {
         this.logger.error(
-          `Failed to fetch completed reports: ${error.message}`,
-          error
+          `Failed to fetch assignments: ${assignmentError.message}`,
+          assignmentError
         );
         throw new InternalServerErrorException(
-          `Failed to fetch completed reports: ${error.message}`
+          `Failed to fetch assignments: ${assignmentError.message}`
         );
       }
 
-      const reports = (data || [])
-        .map((row) => this.transformReport(row))
-        .filter(
-          (report) =>
-            report.assignedTo === userId && report.status === "completed"
+      if (!assignments || assignments.length === 0) {
+        this.logger.log(`No assigned reports found for user ${userId}`);
+        return [];
+      }
+
+      const reportIds = assignments.map((a) => a.report_id);
+
+      const { data: reports, error: reportsError } = await client
+        .from("reports")
+        .select("*")
+        .in("id", reportIds)
+        .order("created_at", { ascending: false });
+
+      if (reportsError) {
+        this.logger.error(
+          `Failed to fetch reports: ${reportsError.message}`,
+          reportsError
         );
+        throw new InternalServerErrorException(
+          `Failed to fetch reports: ${reportsError.message}`
+        );
+      }
+
+      const assignmentMap = new Map(
+        assignments.map((a) => [a.report_id, a.assigned_at])
+      );
+
+      const transformedReports = (reports || []).map((row) => {
+        const report = this.transformReport(row);
+        const assignedAtFromTable = assignmentMap.get(row.id);
+        
+        if (assignedAtFromTable && !report.assignedAt) {
+          report.assignedAt = new Date(assignedAtFromTable).toISOString();
+        }
+        
+        if (!report.assignedTo) {
+          report.assignedTo = userId;
+        }
+        
+        return report;
+      });
+
+      const completedReports = transformedReports.filter(
+        (report) => report.status === "completed"
+      );
 
       this.logger.log(
-        `Fetched ${reports.length} completed reports for user ${userId}`
+        `Fetched ${completedReports.length} completed reports for user ${userId}`
       );
-      return reports;
+      return completedReports;
     } catch (error) {
       this.logger.error(
         `Error in findCompletedByUserId: ${error instanceof Error ? error.message : "Unknown error"}`,
@@ -302,33 +414,226 @@ export class ReportsService {
     try {
       const client = this.supabase.getClient();
 
-      const { data, error } = await client
+      const { data: assignments, error: assignmentError } = await client
+        .from("assigned_reports")
+        .select("report_id");
+
+      if (assignmentError) {
+        this.logger.error(
+          `Failed to fetch assignments: ${assignmentError.message}`,
+          assignmentError
+        );
+        throw new InternalServerErrorException(
+          `Failed to fetch assignments: ${assignmentError.message}`
+        );
+      }
+
+      const assignedReportIds = new Set(
+        (assignments || []).map((a) => a.report_id)
+      );
+
+      const { data: allReports, error: reportsError } = await client
         .from("reports")
         .select("*")
         .order("created_at", { ascending: false });
 
-      if (error) {
+      if (reportsError) {
         this.logger.error(
-          `Failed to fetch available reports: ${error.message}`,
-          error
+          `Failed to fetch reports: ${reportsError.message}`,
+          reportsError
         );
         throw new InternalServerErrorException(
-          `Failed to fetch available reports: ${error.message}`
+          `Failed to fetch reports: ${reportsError.message}`
         );
       }
 
-      const reports = (data || [])
+      const availableReports = (allReports || [])
         .map((row) => this.transformReport(row))
-        .filter((report) => !report.assignedTo && report.status === "pending");
+        .filter(
+          (report) =>
+            !assignedReportIds.has(report.id) &&
+            (!report.assignedTo || report.status === "pending")
+        );
 
-      this.logger.log(`Fetched ${reports.length} available reports`);
-      return reports;
+      this.logger.log(`Fetched ${availableReports.length} available reports`);
+      return availableReports;
     } catch (error) {
       this.logger.error(
         `Error in findAvailable: ${error instanceof Error ? error.message : "Unknown error"}`,
         error instanceof Error ? error.stack : undefined
       );
       throw error;
+    }
+  }
+
+  async assignReportToUser(
+    reportId: string,
+    userId: string
+  ): Promise<AssignReportResponseDto> {
+    try {
+      const client = this.supabase.getClient();
+
+      const { data: report, error: reportError } = await client
+        .from("reports")
+        .select("id, report_content")
+        .eq("id", reportId)
+        .single();
+
+      if (reportError || !report) {
+        this.logger.error(
+          `Report not found: ${reportId}`,
+          reportError
+        );
+        throw new NotFoundException(`Report with ID ${reportId} not found`);
+      }
+
+      let moderatorId: string;
+      const { data: existingModerator, error: moderatorCheckError } = await client
+        .from("moderators")
+        .select("id")
+        .eq("id", userId)
+        .single();
+
+      if (moderatorCheckError && moderatorCheckError.code !== "PGRST116") {
+        this.logger.error(
+          `Error checking moderator: ${moderatorCheckError.message}`,
+          moderatorCheckError
+        );
+        
+        throw new InternalServerErrorException(
+          `Failed to check moderator: ${moderatorCheckError.message}`
+        );
+      }
+
+      if (existingModerator) {
+        moderatorId = existingModerator.id;
+        this.logger.log(`Found existing moderator ${moderatorId} for user ${userId}`);
+      } else {
+        const { data: newModerator, error: createModeratorError } = await client
+          .from("moderators")
+          .insert({
+            id: userId,
+          })
+          .select("id")
+          .single();
+
+        if (createModeratorError || !newModerator) {
+          this.logger.error(
+            `Failed to create moderator: ${createModeratorError?.message || "Unknown error"}`,
+            createModeratorError
+          );
+          throw new InternalServerErrorException(
+            `Failed to create moderator record: ${createModeratorError?.message || "Unknown error"}`
+          );
+        }
+
+        moderatorId = newModerator.id;
+        this.logger.log(`Created new moderator ${moderatorId} for user ${userId}`);
+      }
+
+      const { data: otherAssignment } = await client
+        .from("assigned_reports")
+        .select("moderator_id")
+        .eq("report_id", reportId)
+        .single();
+
+      if (otherAssignment && otherAssignment.moderator_id !== moderatorId) {
+        this.logger.warn(
+          `Report ${reportId} is already assigned to another moderator`
+        );
+        throw new ConflictException(
+          "This report is already assigned to another moderator"
+        );
+      }
+
+      const { data: existingAssignmentForModerator } = await client
+        .from("assigned_reports")
+        .select("moderator_id, report_id")
+        .eq("report_id", reportId)
+        .eq("moderator_id", moderatorId)
+        .single();
+
+      if (existingAssignmentForModerator) {
+        this.logger.warn(
+          `Report ${reportId} is already assigned to moderator ${moderatorId}`
+        );
+        throw new ConflictException(
+          "This report is already assigned to you"
+        );
+      }
+
+      const assignedAt = new Date().toISOString();
+      const { error: assignError } = await client
+        .from("assigned_reports")
+        .insert({
+          report_id: reportId,
+          moderator_id: moderatorId,
+          assigned_at: assignedAt,
+        });
+
+      if (assignError) {
+        this.logger.error(
+          `Failed to create assignment: ${assignError.message}`,
+          assignError
+        );
+        throw new InternalServerErrorException(
+          `Failed to assign report: ${assignError.message}`
+        );
+      }
+
+      const currentContent = (report.report_content as Record<string, unknown>) || {};
+      const updatedContent = {
+        ...currentContent,
+        status: "assigned",
+        assigned_to: userId,
+        assigned_at: assignedAt,
+      };
+
+      const { error: updateError } = await client
+        .from("reports")
+        .update({
+          report_content: updatedContent,
+        })
+        .eq("id", reportId);
+
+      if (updateError) {
+        this.logger.error(
+          `Failed to update report status: ${updateError.message}`,
+          updateError
+        );
+        
+        await client
+          .from("assigned_reports")
+          .delete()
+          .eq("report_id", reportId);
+        throw new InternalServerErrorException(
+          `Failed to update report status: ${updateError.message}`
+        );
+      }
+
+      this.logger.log(
+        `Successfully assigned report ${reportId} to moderator ${moderatorId} (user ${userId})`
+      );
+
+      return {
+        message: "Report assigned successfully",
+        reportId,
+        moderatorId,
+      };
+    } catch (error) {
+      if (
+        error instanceof NotFoundException ||
+        error instanceof ConflictException
+      ) {
+        throw error;
+      }
+      this.logger.error(
+        `Error in assignReportToUser: ${error instanceof Error ? error.message : "Unknown error"}`,
+        error instanceof Error ? error.stack : undefined
+      );
+      throw new InternalServerErrorException(
+        `Failed to assign report: ${error instanceof Error ? error.message : "Unknown error"}`
+      );
     }
   }
 }

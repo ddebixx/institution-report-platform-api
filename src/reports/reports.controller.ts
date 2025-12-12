@@ -4,6 +4,7 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  Param,
   Post,
   UploadedFile,
   UseGuards,
@@ -13,6 +14,7 @@ import { FileInterceptor } from "@nestjs/platform-express";
 import { CreateReportDto } from "./dto/create-report.dto";
 import { CreateReportResponseDto } from "./dto/create-report-response.dto";
 import { ReportResponseDto } from "./dto/report-response.dto";
+import { AssignReportResponseDto } from "./dto/assign-report-response.dto";
 import { ReportsService } from "./reports.service";
 import {
   ApiBody,
@@ -184,6 +186,38 @@ export class ReportsController {
   })
   async getAvailableReports(): Promise<ReportResponseDto[]> {
     return this.reportsService.findAvailable();
+  }
+
+  @Post(":id/assign")
+  @UseGuards(SupabaseAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: "Assign a report to the current user",
+    description:
+      "Assigns a report to the authenticated user. Creates a record in the assigned_reports table and updates the report status to 'assigned'. Requires authentication.",
+  })
+  @ApiResponse({
+    status: 200,
+    description: "Report assigned successfully.",
+    type: AssignReportResponseDto,
+  })
+  @ApiResponse({
+    status: 401,
+    description: "Unauthorized - missing or invalid bearer token.",
+  })
+  @ApiResponse({
+    status: 404,
+    description: "Report not found.",
+  })
+  @ApiResponse({
+    status: 409,
+    description: "Report is already assigned to this user or another moderator.",
+  })
+  async assignReportToSelf(
+    @Param("id") reportId: string,
+    @CurrentUser() user: AuthUser
+  ): Promise<AssignReportResponseDto> {
+    return this.reportsService.assignReportToUser(reportId, user.id);
   }
 }
 
