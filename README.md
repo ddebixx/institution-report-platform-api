@@ -18,6 +18,11 @@ SUPABASE_SECRET_ROLE_KEY=your-jwt-secret
 SUPABASE_BUCKET=reports
 ```
 
+**Note about Prisma:**
+- The app works with or without Prisma. Currently, database operations use Supabase client directly.
+- `DATABASE_URL` is **optional** - only needed if you want to use Prisma ORM.
+- If you want to use Prisma: Supabase **IS** a PostgreSQL database. Get your connection string from **Settings > Database > Connection string** (URI format) in your Supabase dashboard.
+
 ## Install & run
 ```
 yarn install

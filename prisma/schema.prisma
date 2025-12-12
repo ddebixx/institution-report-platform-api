@@ -1,0 +1,25 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Report {
+  id                  String   @id @default(uuid())
+  reporterName        String   @map("reporter_name")
+  reporterEmail       String   @map("reporter_email")
+  reportedInstitution String?  @map("reported_institution")
+  reportDescription   String?  @map("report_description")
+  reportContent       Json     @map("report_content")
+  institutionName     String?  @map("institution_name")
+  institutionId       String?  @map("institution_id")
+  reportReason        String?  @map("report_reason")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  @@map("reports")
+}
+

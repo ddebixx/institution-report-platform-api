@@ -1,15 +1,18 @@
 import {
   Body,
   Controller,
+  Get,
   HttpCode,
   HttpStatus,
   Post,
   UploadedFile,
+  UseGuards,
   UseInterceptors,
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
 import { CreateReportDto } from "./dto/create-report.dto";
 import { CreateReportResponseDto } from "./dto/create-report-response.dto";
+import { ReportResponseDto } from "./dto/report-response.dto";
 import { ReportsService } from "./reports.service";
 import {
   ApiBody,
@@ -18,6 +21,9 @@ import {
   ApiResponse,
   ApiTags,
 } from "@nestjs/swagger";
+import { SupabaseAuthGuard } from "../auth/supabase-auth.guard";
+import { CurrentUser } from "../auth/current-user.decorator";
+import { AuthUser } from "@supabase/supabase-js";
 
 @ApiTags("Reports")
 @Controller("reports")
@@ -94,6 +100,90 @@ export class ReportsController {
     @UploadedFile() pdf: Express.Multer.File | undefined
   ): Promise<CreateReportResponseDto> {
     return this.reportsService.create(dto, pdf);
+  }
+
+  @Get()
+  @UseGuards(SupabaseAuthGuard)
+  @ApiOperation({
+    summary: "Get all reports",
+    description:
+      "Retrieves all reports. Requires authentication. Returns reports ordered by creation date (newest first).",
+  })
+  @ApiResponse({
+    status: 200,
+    description: "List of all reports.",
+    type: [ReportResponseDto],
+  })
+  @ApiResponse({
+    status: 401,
+    description: "Unauthorized - missing or invalid bearer token.",
+  })
+  async getAllReports(): Promise<ReportResponseDto[]> {
+    return this.reportsService.findAll();
+  }
+
+  @Get("assigned")
+  @UseGuards(SupabaseAuthGuard)
+  @ApiOperation({
+    summary: "Get assigned reports for current user",
+    description:
+      "Retrieves all reports assigned to the authenticated user. Requires authentication.",
+  })
+  @ApiResponse({
+    status: 200,
+    description: "List of reports assigned to the current user.",
+    type: [ReportResponseDto],
+  })
+  @ApiResponse({
+    status: 401,
+    description: "Unauthorized - missing or invalid bearer token.",
+  })
+  async getAssignedReports(
+    @CurrentUser() user: AuthUser
+  ): Promise<ReportResponseDto[]> {
+    return this.reportsService.findAssignedByUserId(user.id);
+  }
+
+  @Get("completed")
+  @UseGuards(SupabaseAuthGuard)
+  @ApiOperation({
+    summary: "Get completed reports for current user",
+    description:
+      "Retrieves all completed reports assigned to the authenticated user. Requires authentication.",
+  })
+  @ApiResponse({
+    status: 200,
+    description: "List of completed reports assigned to the current user.",
+    type: [ReportResponseDto],
+  })
+  @ApiResponse({
+    status: 401,
+    description: "Unauthorized - missing or invalid bearer token.",
+  })
+  async getCompletedReports(
+    @CurrentUser() user: AuthUser
+  ): Promise<ReportResponseDto[]> {
+    return this.reportsService.findCompletedByUserId(user.id);
+  }
+
+  @Get("available")
+  @UseGuards(SupabaseAuthGuard)
+  @ApiOperation({
+    summary: "Get available (unassigned) reports",
+    description:
+      "Retrieves all reports that are not yet assigned to any user (status: pending). Requires authentication.",
+  })
+  @ApiResponse({
+    status: 200,
+    description: "List of available (unassigned) reports.",
+    type: [ReportResponseDto],
+  })
+  @ApiResponse({
+    status: 401,
+    description: "Unauthorized - missing or invalid bearer token.",
+  })
+  async getAvailableReports(): Promise<ReportResponseDto[]> {
+    return this.reportsService.findAvailable();
   }
 }
 
