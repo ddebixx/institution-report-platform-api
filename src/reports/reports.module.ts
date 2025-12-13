@@ -2,8 +2,9 @@ import { Module } from "@nestjs/common";
 import { MulterModule } from "@nestjs/platform-express";
 import { AuthModule } from "../auth/auth.module";
 import { SupabaseModule } from "../supabase/supabase.module";
-import { ReportsController } from "./reports.controller";
-import { ReportsService } from "./reports.service";
+import { ReportsController } from "./controller/reports.controller";
+import { ReportsService } from "./service/reports.service";
+import { ReportsRepository } from "./repository/reports.repository";
 
 @Module({
   imports: [
@@ -14,7 +15,7 @@ import { ReportsService } from "./reports.service";
     }),
   ],
   controllers: [ReportsController],
-  providers: [ReportsService],
+  providers: [ReportsService, ReportsRepository],
 })
 export class ReportsModule {}
 

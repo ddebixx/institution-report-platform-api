@@ -11,11 +11,6 @@ import {
   UseInterceptors,
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
-import { CreateReportDto } from "./dto/create-report.dto";
-import { CreateReportResponseDto } from "./dto/create-report-response.dto";
-import { ReportResponseDto } from "./dto/report-response.dto";
-import { AssignReportResponseDto } from "./dto/assign-report-response.dto";
-import { ReportsService } from "./reports.service";
 import {
   ApiBody,
   ApiConsumes,
@@ -23,9 +18,14 @@ import {
   ApiResponse,
   ApiTags,
 } from "@nestjs/swagger";
-import { SupabaseAuthGuard } from "../auth/supabase-auth.guard";
-import { CurrentUser } from "../auth/current-user.decorator";
 import { AuthUser } from "@supabase/supabase-js";
+import { SupabaseAuthGuard } from "../../auth/supabase-auth.guard";
+import { CurrentUser } from "../../auth/current-user.decorator";
+import { ReportsService } from "../service/reports.service";
+import { CreateReportDto } from "../dto/create-report.dto";
+import { CreateReportResponseDto } from "../dto/create-report-response.dto";
+import { ReportResponseDto } from "../dto/report-response.dto";
+import { AssignReportResponseDto } from "../dto/assign-report-response.dto";
 
 @ApiTags("Reports")
 @Controller("reports")

@@ -8,7 +8,7 @@ datasource db {
 }
 
 model Report {
-  id                  String   @id @default(uuid())
+  reportId            String   @id @default(uuid()) @map("report_id")
   reporterName        String   @map("reporter_name")
   reporterEmail       String   @map("reporter_email")
   reportedInstitution String?  @map("reported_institution")
