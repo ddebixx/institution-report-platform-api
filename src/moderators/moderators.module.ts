@@ -16,6 +16,7 @@ import { ModeratorsRepository } from "./repository/moderators.repository";
   ],
   controllers: [ModeratorsController],
   providers: [ModeratorsService, ModeratorsRepository],
+  exports: [ModeratorsRepository],
 })
 export class ModeratorsModule {}
 

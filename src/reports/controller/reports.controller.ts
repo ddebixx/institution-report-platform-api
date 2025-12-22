@@ -1,10 +1,12 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
   Param,
+  Patch,
   Post,
   UploadedFile,
   UseGuards,
@@ -26,6 +28,9 @@ import { CreateReportDto } from "../dto/create-report.dto";
 import { CreateReportResponseDto } from "../dto/create-report-response.dto";
 import { ReportResponseDto } from "../dto/report-response.dto";
 import { AssignReportResponseDto } from "../dto/assign-report-response.dto";
+import { UnassignReportResponseDto } from "../dto/unassign-report-response.dto";
+import { ReviewReportDto } from "../dto/review-report.dto";
+import { ReviewReportResponseDto } from "../dto/review-report-response.dto";
 
 @ApiTags("Reports")
 @Controller("reports")
@@ -218,6 +223,75 @@ export class ReportsController {
     @CurrentUser() user: AuthUser
   ): Promise<AssignReportResponseDto> {
     return this.reportsService.assignReportToUser(reportId, user.id);
+  }
+
+  @Delete(":id/assign")
+  @UseGuards(SupabaseAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: "Unassign a report from the current user",
+    description:
+      "Unassigns a report that was assigned to the authenticated user. Removes the assignment record and updates the report status to 'pending'. Requires authentication.",
+  })
+  @ApiResponse({
+    status: 200,
+    description: "Report unassigned successfully.",
+    type: UnassignReportResponseDto,
+  })
+  @ApiResponse({
+    status: 401,
+    description: "Unauthorized - missing or invalid bearer token.",
+  })
+  @ApiResponse({
+    status: 404,
+    description: "Report not found.",
+  })
+  @ApiResponse({
+    status: 409,
+    description: "Report is not assigned to you.",
+  })
+  async unassignReportFromSelf(
+    @Param("id") reportId: string,
+    @CurrentUser() user: AuthUser
+  ): Promise<UnassignReportResponseDto> {
+    return this.reportsService.unassignReportFromUser(reportId, user.id);
+  }
+
+  @Patch(":id/review")
+  @UseGuards(SupabaseAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: "Review and complete a report",
+    description:
+      "Marks a report as completed. The report must be assigned to the authenticated user. Updates the report status to 'completed' and records the completion time. Requires authentication.",
+  })
+  @ApiResponse({
+    status: 200,
+    description: "Report reviewed successfully.",
+    type: ReviewReportResponseDto,
+  })
+  @ApiResponse({
+    status: 401,
+    description: "Unauthorized - missing or invalid bearer token.",
+  })
+  @ApiResponse({
+    status: 404,
+    description: "Report not found.",
+  })
+  @ApiResponse({
+    status: 409,
+    description: "Report is not assigned to you.",
+  })
+  async reviewReport(
+    @Param("id") reportId: string,
+    @CurrentUser() user: AuthUser,
+    @Body() dto: ReviewReportDto
+  ): Promise<ReviewReportResponseDto> {
+    return this.reportsService.reviewReport(
+      reportId,
+      user.id,
+      dto
+    );
   }
 }
 

@@ -11,12 +11,17 @@ import { AuthUser } from "@supabase/supabase-js";
 import { randomUUID } from "crypto";
 import { extname } from "path";
 import { SupabaseService } from "../../supabase/supabase.service";
+import { EmailService } from "../../email/email.service";
+import { ModeratorsRepository } from "../../moderators/repository/moderators.repository";
 import { ReportsRepository } from "../repository/reports.repository";
 import { ReportMapper } from "../repository/report.mapper";
 import { CreateReportDto } from "../dto/create-report.dto";
 import { CreateReportResponseDto } from "../dto/create-report-response.dto";
 import { ReportResponseDto } from "../dto/report-response.dto";
 import { AssignReportResponseDto } from "../dto/assign-report-response.dto";
+import { UnassignReportResponseDto } from "../dto/unassign-report-response.dto";
+import { ReviewReportResponseDto } from "../dto/review-report-response.dto";
+import { ReviewReportDto } from "../dto/review-report.dto";
 
 @Injectable()
 export class ReportsService {
@@ -26,7 +31,9 @@ export class ReportsService {
   constructor(
     private readonly repository: ReportsRepository,
     private readonly supabase: SupabaseService,
-    private readonly config: ConfigService
+    private readonly config: ConfigService,
+    private readonly emailService: EmailService,
+    private readonly moderatorsRepository: ModeratorsRepository
   ) {
     this.bucket = this.config.get<string>("SUPABASE_BUCKET") ?? "report-files";
   }
@@ -163,8 +170,7 @@ export class ReportsService {
       );
 
       const filteredReports = transformedReports.filter(
-        (report) =>
-          report.status === "assigned" || report.status === "completed"
+        (report) => report.status === "assigned"
       );
 
       this.logger.log(
@@ -351,6 +357,179 @@ export class ReportsService {
       );
       throw new InternalServerErrorException(
         `Failed to assign report: ${error instanceof Error ? error.message : "Unknown error"}`
+      );
+    }
+  }
+
+  async unassignReportFromUser(
+    reportId: string,
+    userId: string
+  ): Promise<UnassignReportResponseDto> {
+    try {
+      const report = await this.repository.findById(reportId);
+      if (!report) {
+        this.logger.error(`Report not found: ${reportId}`);
+        throw new NotFoundException(`Report with ID ${reportId} not found`);
+      }
+
+      const moderator = await this.repository.findOrCreateModerator(userId);
+      const existingAssignment = await this.repository.findAssignment(
+        reportId,
+        moderator.id
+      );
+
+      if (!existingAssignment) {
+        this.logger.warn(
+          `Report ${reportId} is not assigned to moderator ${moderator.id}`
+        );
+        throw new ConflictException(
+          "This report is not assigned to you"
+        );
+      }
+
+      await this.repository.deleteAssignment(reportId);
+
+      const currentContent =
+        (report.report_content as Record<string, unknown>) || {};
+      const updatedContent = {
+        ...currentContent,
+        status: "pending",
+        assigned_to: null,
+        assigned_at: null,
+      };
+
+      try {
+        await this.repository.update(reportId, {
+          report_content: updatedContent,
+        });
+      } catch (updateError) {
+        this.logger.error(
+          `Failed to update report status: ${updateError instanceof Error ? updateError.message : "Unknown error"}`,
+          updateError instanceof Error ? updateError.stack : undefined
+        );
+        throw new InternalServerErrorException(
+          `Failed to update report status: ${updateError instanceof Error ? updateError.message : "Unknown error"}`
+        );
+      }
+
+      this.logger.log(
+        `Successfully unassigned report ${reportId} from moderator ${moderator.id} (user ${userId})`
+      );
+
+      return {
+        message: "Report unassigned successfully",
+        reportId,
+      };
+    } catch (error) {
+      if (
+        error instanceof NotFoundException ||
+        error instanceof ConflictException
+      ) {
+        throw error;
+      }
+      this.logger.error(
+        `Error in unassignReportFromUser: ${error instanceof Error ? error.message : "Unknown error"}`,
+        error instanceof Error ? error.stack : undefined
+      );
+      throw new InternalServerErrorException(
+        `Failed to unassign report: ${error instanceof Error ? error.message : "Unknown error"}`
+      );
+    }
+  }
+
+  async reviewReport(
+    reportId: string,
+    userId: string,
+    dto: ReviewReportDto
+  ): Promise<ReviewReportResponseDto> {
+    try {
+      const report = await this.repository.findById(reportId);
+      if (!report) {
+        this.logger.error(`Report not found: ${reportId}`);
+        throw new NotFoundException(`Report with ID ${reportId} not found`);
+      }
+
+      const moderator = await this.repository.findOrCreateModerator(userId);
+      const existingAssignment = await this.repository.findAssignment(
+        reportId,
+        moderator.id
+      );
+
+      if (!existingAssignment) {
+        this.logger.warn(
+          `Report ${reportId} is not assigned to moderator ${moderator.id}`
+        );
+        throw new ConflictException(
+          "This report is not assigned to you"
+        );
+      }
+
+      const reviewNotes =
+        dto.reportContent?.comparisonNotes?.trim() ||
+        dto.reviewNotes?.trim() ||
+        null;
+
+      this.logger.debug(
+        `AI Extracted review notes for report ${reportId}: ${reviewNotes ? `"${reviewNotes.substring(0, 50)}${reviewNotes.length > 50 ? "..." : ""}"` : "null"}`
+      );
+
+      const currentContent =
+        (report.report_content as Record<string, unknown>) || {};
+      const completedAt = new Date().toISOString();
+
+      const updatedContent = {
+        ...currentContent,
+        status: "completed",
+        completed_at: completedAt,
+        review_notes: reviewNotes,
+        findings: dto.reportContent?.findings || currentContent.findings,
+        comparisonNotes: dto.reportContent?.comparisonNotes || currentContent.comparisonNotes,
+      };
+
+      try {
+        await this.repository.update(reportId, {
+          report_content: updatedContent,
+        });
+      } catch (updateError) {
+        this.logger.error(
+          `Failed to update report status: ${updateError instanceof Error ? updateError.message : "Unknown error"}`,
+          updateError instanceof Error ? updateError.stack : undefined
+        );
+        throw new InternalServerErrorException(
+          `Failed to update report status: ${updateError instanceof Error ? updateError.message : "Unknown error"}`
+        );
+      }
+
+      this.logger.log(
+        `Successfully reviewed report ${reportId} by moderator ${moderator.id} (user ${userId})`
+      );
+
+      const moderatorDetails = await this.moderatorsRepository.findById(moderator.id);
+
+      await this.emailService.sendReportReviewEmail({
+        report,
+        reviewNotes: reviewNotes || undefined,
+        moderator: moderatorDetails,
+      });
+
+      return {
+        message: "Report reviewed successfully",
+        reportId,
+        status: "completed",
+      };
+    } catch (error) {
+      if (
+        error instanceof NotFoundException ||
+        error instanceof ConflictException
+      ) {
+        throw error;
+      }
+      this.logger.error(
+        `Error in reviewReport: ${error instanceof Error ? error.message : "Unknown error"}`,
+        error instanceof Error ? error.stack : undefined
+      );
+      throw new InternalServerErrorException(
+        `Failed to review report: ${error instanceof Error ? error.message : "Unknown error"}`
       );
     }
   }
