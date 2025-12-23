@@ -24,7 +24,7 @@ export class EmailService {
 
     if (!apiKey) {
       this.logger.error(
-        "AI Missing RESEND_API_KEY environment variable. Email sending is disabled."
+        "Missing RESEND_API_KEY environment variable. Email sending is disabled."
       );
       throw new InternalServerErrorException(
         "Email service is not configured correctly."
@@ -41,7 +41,7 @@ export class EmailService {
 
     if (!report.reporter_email) {
       this.logger.warn(
-        "AI Skipping report review email because reporter_email is missing."
+        "Skipping report review email because reporter_email is missing."
       );
       return;
     }
@@ -139,11 +139,11 @@ export class EmailService {
       });
 
       this.logger.log(
-        `AI Report review email sent successfully to ${report.reporter_email} for report ${report.report_id}.`
+        `Report review email sent successfully to ${report.reporter_email} for report ${report.report_id}.`
       );
     } catch (error) {
       this.logger.error(
-        `AI Failed to send report review email for report ${report.report_id}: ${error instanceof Error ? error.message : "Unknown error"
+        `Failed to send report review email for report ${report.report_id}: ${error instanceof Error ? error.message : "Unknown error"
         }`,
         error instanceof Error ? error.stack : undefined
       );

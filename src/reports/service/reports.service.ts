@@ -470,7 +470,7 @@ export class ReportsService {
         null;
 
       this.logger.debug(
-        `AI Extracted review notes for report ${reportId}: ${reviewNotes ? `"${reviewNotes.substring(0, 50)}${reviewNotes.length > 50 ? "..." : ""}"` : "null"}`
+        `Extracted review notes for report ${reportId}: ${reviewNotes ? `"${reviewNotes.substring(0, 50)}${reviewNotes.length > 50 ? "..." : ""}"` : "null"}`
       );
 
       const currentContent =
