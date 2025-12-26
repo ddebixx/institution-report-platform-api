@@ -50,26 +50,6 @@ export class ReportMapper {
       ? parseDate(entity.updated_at) || new Date().toISOString()
       : new Date().toISOString();
 
-    // AI: Extract reportContent (findings and comparisonNotes) from the JSON field
-    const extractedReportContent = (() => {
-      const findings = reportContent.findings as Array<{
-        id: string;
-        detail: string;
-        regulationId?: string;
-        pageReference?: string;
-      }> | undefined;
-      const comparisonNotes = reportContent.comparisonNotes as string | undefined;
-      
-      if (!findings && !comparisonNotes) {
-        return undefined;
-      }
-
-      return {
-        findings: findings || [],
-        comparisonNotes: comparisonNotes || "",
-      };
-    })();
-
     return {
       id: entity.report_id || "",
       reporterName: entity.reporter_name || "",
@@ -88,7 +68,6 @@ export class ReportMapper {
       createdAt,
       updatedAt,
       pdfPath,
-      reportContent: extractedReportContent,
     };
   }
 

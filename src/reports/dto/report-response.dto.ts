@@ -97,29 +97,5 @@ export class ReportResponseDto {
     example: "123456/4b2c6d90-2f8e-4b1a-bc72-7ec48c9d1c3f.pdf",
   })
   pdfPath?: string;
-
-  @ApiPropertyOptional({
-    description: "Report content including findings and comparison notes from the user or moderator review.",
-    example: {
-      findings: [
-        {
-          id: "finding-1",
-          detail: "Non-compliance with section 3.2",
-          regulationId: "reg-1",
-          pageReference: "5",
-        },
-      ],
-      comparisonNotes: "The document shows several areas of concern.",
-    },
-  })
-  reportContent?: {
-    findings?: Array<{
-      id: string;
-      detail: string;
-      regulationId?: string;
-      pageReference?: string;
-    }>;
-    comparisonNotes?: string;
-  };
 }
 

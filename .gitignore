@@ -16,3 +16,4 @@ typings/
 coverage/
 package-lock.json
 dist/
+.vercel
