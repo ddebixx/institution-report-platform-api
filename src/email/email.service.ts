@@ -66,59 +66,65 @@ export class EmailService {
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Report Review Completed</title>
       </head>
-      <body style="margin: 0; padding: 0; background-color: #f3f4f6; font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
-        <table role="presentation" style="width: 100%; border-collapse: collapse; background-color: #f3f4f6;">
+      <body style="margin: 0; padding: 0; background-color: #f5f5f5; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+        <table role="presentation" style="width: 100%; border-collapse: collapse; background-color: #f5f5f5;">
           <tr>
             <td style="padding: 40px 20px;">
-              <table role="presentation" style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1); border-collapse: collapse;">
+              <table role="presentation" style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border: 1px solid #e0e0e0; border-collapse: collapse;">
                 <!-- Header -->
                 <tr>
-                  <td style="padding: 32px 32px 24px 32px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 8px 8px 0 0;">
-                    <h1 style="margin: 0; font-size: 24px; font-weight: 600; color: #ffffff; line-height: 1.3;">
-                      Report Review Completed
+                  <td style="padding: 40px 40px 32px 40px; background-color: #1a1a1a; border-bottom: 3px solid #2563eb;">
+                    <h1 style="margin: 0; font-size: 22px; font-weight: 600; color: #ffffff; line-height: 1.4; letter-spacing: -0.5px;">
+                      Report Review Notification
                     </h1>
                   </td>
                 </tr>
                 
                 <!-- Content -->
                 <tr>
-                  <td style="padding: 32px;">
-                    <p style="margin: 0 0 16px 0; font-size: 16px; line-height: 1.6; color: #111827;">
-                      Hello ${this.escapeHtml(report.reporter_name || "Reporter")},
+                  <td style="padding: 40px;">
+                    <p style="margin: 0 0 20px 0; font-size: 15px; line-height: 1.7; color: #1a1a1a;">
+                      Dear ${this.escapeHtml(report.reporter_name || "Reporter")},
                     </p>
-                    <p style="margin: 0 0 24px 0; font-size: 16px; line-height: 1.6; color: #374151;">
-                      Your report regarding <strong style="color: #111827;">${this.escapeHtml(institutionName)}</strong> has been reviewed by ${this.escapeHtml(moderatorName)}.
+                    <p style="margin: 0 0 28px 0; font-size: 15px; line-height: 1.7; color: #333333;">
+                      We are writing to inform you that your report concerning <strong style="color: #1a1a1a;">${this.escapeHtml(institutionName)}</strong> has been reviewed by ${this.escapeHtml(moderatorName)}.
                     </p>
                     
                     <!-- Summary Box -->
-                    <div style="background-color: #f9fafb; border-left: 4px solid #667eea; padding: 20px; border-radius: 4px; margin: 24px 0;">
-                      <p style="margin: 0 0 12px 0; font-size: 14px; font-weight: 600; color: #374151; text-transform: uppercase; letter-spacing: 0.5px;">
-                        Summary from Moderator
+                    <div style="background-color: #fafafa; border: 1px solid #e0e0e0; padding: 24px; margin: 28px 0;">
+                      <p style="margin: 0 0 14px 0; font-size: 13px; font-weight: 600; color: #555555; text-transform: uppercase; letter-spacing: 1px;">
+                        Review Summary
                       </p>
-                      <p style="margin: 0; font-size: 15px; line-height: 1.6; color: #111827; white-space: pre-line;">
+                      <p style="margin: 0; font-size: 15px; line-height: 1.7; color: #1a1a1a; white-space: pre-line;">
                         ${this.escapeHtml(safeReviewNotes)}
                       </p>
                     </div>
                     
                     <!-- Report Details -->
-                    <div style="background-color: #f9fafb; padding: 16px; border-radius: 4px; margin: 24px 0;">
-                      <p style="margin: 0; font-size: 14px; color: #6b7280;">
-                        <strong style="color: #374151;">Report ID:</strong>
-                        <span style="font-family: 'Courier New', monospace; color: #111827; margin-left: 8px;">${report.report_id}</span>
-                      </p>
-                    </div>
+                    <table role="presentation" style="width: 100%; border-collapse: collapse; margin: 28px 0;">
+                      <tr>
+                        <td style="padding: 16px; background-color: #fafafa; border: 1px solid #e0e0e0;">
+                          <p style="margin: 0; font-size: 13px; color: #555555;">
+                            <strong style="color: #1a1a1a;">Report Reference ID:</strong>
+                          </p>
+                          <p style="margin: 8px 0 0 0; font-family: 'Courier New', monospace; font-size: 14px; color: #1a1a1a;">
+                            ${report.report_id}
+                          </p>
+                        </td>
+                      </tr>
+                    </table>
                     
-                    <p style="margin: 24px 0 0 0; font-size: 15px; line-height: 1.6; color: #6b7280;">
-                      Thank you for helping us monitor and improve compliance.
+                    <p style="margin: 28px 0 0 0; font-size: 15px; line-height: 1.7; color: #555555;">
+                      We appreciate your contribution to maintaining institutional compliance and transparency.
                     </p>
                   </td>
                 </tr>
                 
                 <!-- Footer -->
                 <tr>
-                  <td style="padding: 24px 32px; background-color: #f9fafb; border-top: 1px solid #e5e7eb; border-radius: 0 0 8px 8px;">
-                    <p style="margin: 0; font-size: 12px; color: #9ca3af; text-align: center;">
-                      This is an automated message. Please do not reply to this email.
+                  <td style="padding: 24px 40px; background-color: #fafafa; border-top: 1px solid #e0e0e0;">
+                    <p style="margin: 0; font-size: 12px; line-height: 1.6; color: #888888; text-align: center;">
+                      This is an automated notification. Please do not reply to this email.
                     </p>
                   </td>
                 </tr>
