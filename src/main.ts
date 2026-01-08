@@ -7,68 +7,69 @@ import { AppModule } from "./app.module";
 
 async function bootstrap(): Promise<void> {
   const logger = new Logger("Bootstrap");
-  
+
   try {
     logger.log("Starting application...");
     const app = await NestFactory.create(AppModule, {
       bufferLogs: true,
     });
 
-  const config = app.get(ConfigService);
-  const allowedOrigins = [
-    config.get<string>("FRONTEND_URL"),
-    "http://localhost:3000",
-    "http://localhost:3001",
-    "https://institution-report-platform-app.vercel.app/**"
-  ].filter(Boolean);
+    const config = app.get(ConfigService);
+    const allowedOrigins = [
+      config.get<string>("FRONTEND_URL"),
+      "http://localhost:3000",
+      "http://localhost:3001",
+      "https://institution-report-platform-app.vercel.app"
+    ].filter(Boolean);
 
-  app.enableCors({
-    origin: (origin, callback) => {
-      if (!origin) {
-        return callback(null, true);
-      }
-      
-      if (
-        allowedOrigins.some(allowed => allowed && origin.startsWith(allowed)) ||
-        origin.endsWith('.vercel.app')
-      ) {
-        callback(null, true);
-      } else {
-        callback(new Error(`Origin ${origin} not allowed by CORS`));
-      }
-    },
-    credentials: true,
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-  });
+    app.enableCors({
+      origin: (origin, callback) => {
+        if (!origin) {
+          return callback(null, true);
+        }
 
-  app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true,
-      transform: true,
-      transformOptions: { enableImplicitConversion: true },
-      forbidUnknownValues: false,
-    })
-  );
+        const isAllowed =
+          allowedOrigins.some(allowed => allowed && origin === allowed) ||
+          origin.endsWith('.vercel.app');
 
-  const port = config.get<number>("PORT") ?? 3000;
-  
-  const host = config.get<string>("HOST") ?? "0.0.0.0";
+        if (isAllowed) {
+          callback(null, true);
+        } else {
+          callback(new Error(`CORS policy: Origin ${origin} is not allowed by CORS`));
+        }
+      },
+      credentials: true,
+      methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+      allowedHeaders: ["Content-Type", "Authorization"],
+    });
 
-  const swaggerConfig = new DocumentBuilder()
-    .setTitle("Institution Report API")
-    .setDescription("API for submitting reports with Supabase authentication.")
-    .setVersion("1.0")
-    .addBearerAuth({
-      type: "http",
-      scheme: "bearer",
-      bearerFormat: "JWT",
-      description: "Supabase access token retrieved after user login.",
-    })
-    .build();
+    app.useGlobalPipes(
+      new ValidationPipe({
+        whitelist: true,
+        transform: true,
+        transformOptions: { enableImplicitConversion: true },
+        forbidUnknownValues: false,
+      })
+    );
 
-  const document = SwaggerModule.createDocument(app, swaggerConfig);
-  SwaggerModule.setup("docs", app, document);
+    const port = config.get<number>("PORT") ?? 3000;
+
+    const host = config.get<string>("HOST") ?? "0.0.0.0";
+
+    const swaggerConfig = new DocumentBuilder()
+      .setTitle("Institution Report API")
+      .setDescription("API for submitting reports with Supabase authentication.")
+      .setVersion("1.0")
+      .addBearerAuth({
+        type: "http",
+        scheme: "bearer",
+        bearerFormat: "JWT",
+        description: "Supabase access token retrieved after user login.",
+      })
+      .build();
+
+    const document = SwaggerModule.createDocument(app, swaggerConfig);
+    SwaggerModule.setup("docs", app, document);
 
     await app.listen(port, host);
     logger.log(`HTTP server listening on ${host}:${port}`);
