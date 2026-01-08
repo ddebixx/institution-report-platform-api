@@ -14,8 +14,29 @@ async function bootstrap(): Promise<void> {
       bufferLogs: true,
     });
 
+  const config = app.get(ConfigService);
+  const allowedOrigins = [
+    config.get<string>("FRONTEND_URL"),
+    "http://localhost:3000",
+    "http://localhost:3001",
+    "https://institution-report-platform-app.vercel.app/**"
+  ].filter(Boolean);
+
   app.enableCors({
-    origin: true,
+    origin: (origin, callback) => {
+      if (!origin) {
+        return callback(null, true);
+      }
+      
+      if (
+        allowedOrigins.some(allowed => allowed && origin.startsWith(allowed)) ||
+        origin.endsWith('.vercel.app')
+      ) {
+        callback(null, true);
+      } else {
+        callback(new Error(`Origin ${origin} not allowed by CORS`));
+      }
+    },
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
@@ -30,8 +51,9 @@ async function bootstrap(): Promise<void> {
     })
   );
 
-  const config = app.get(ConfigService);
   const port = config.get<number>("PORT") ?? 3000;
+  
+  const host = config.get<string>("HOST") ?? "0.0.0.0";
 
   const swaggerConfig = new DocumentBuilder()
     .setTitle("Institution Report API")
@@ -48,8 +70,8 @@ async function bootstrap(): Promise<void> {
   const document = SwaggerModule.createDocument(app, swaggerConfig);
   SwaggerModule.setup("docs", app, document);
 
-    await app.listen(port);
-    logger.log(`HTTP server listening on http://localhost:${port}`);
+    await app.listen(port, host);
+    logger.log(`HTTP server listening on ${host}:${port}`);
   } catch (error) {
     logger.error("Error during application startup", error);
     throw error;
